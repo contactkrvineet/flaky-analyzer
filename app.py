@@ -259,7 +259,7 @@ PAGE = """
     .credit {
         margin-top: .55rem;
         font-size: .86rem;
-        color: #d0d0d0;
+        color: #22c55e;
     }
     .card {
         border: 1px solid var(--line);
