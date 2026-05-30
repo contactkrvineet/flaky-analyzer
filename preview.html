@@ -1,0 +1,354 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>Flaky Test Analyzer - preview</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #070707;
+      --panel: #121212;
+      --ink: #f2f2f2;
+      --muted: #b3b3b3;
+      --brand: #f5f5f5;
+      --brand-strong: #d8d8d8;
+      --line: #2d2d2d;
+      --warn-bg: #151515;
+      --warn-line: #424242;
+      --flash-bg: #171717;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font: 15px/1.6 "Avenir Next", "Futura", "Trebuchet MS", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% -10%, #1a1a1a 0%, transparent 44%),
+        radial-gradient(circle at 100% 0%, #111111 0%, transparent 38%),
+        var(--bg);
+    }
+
+    .wrap {
+      max-width: 980px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      animation: fade-in .45s ease-out;
+    }
+
+    .hero {
+      background: linear-gradient(145deg, #171717, #101010 58%);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 1.15rem 1.2rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .42);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.75rem;
+      letter-spacing: .02em;
+    }
+
+    p.sub {
+      color: var(--muted);
+      margin: .35rem 0 0;
+      max-width: 76ch;
+    }
+
+    .credit {
+      margin-top: .55rem;
+      font-size: .86rem;
+      color: #d0d0d0;
+    }
+
+    .banner {
+      background: #131313;
+      border: 1px solid #343434;
+      padding: .6rem .9rem;
+      border-radius: 8px;
+      font-size: .85rem;
+      margin: 1rem 0;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 12px;
+      margin: 1rem 0;
+      padding: 1rem 1.1rem;
+    }
+
+    .disclaimer {
+      background: var(--warn-bg);
+      border-color: var(--warn-line);
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    form {
+      display: grid;
+      grid-template-columns: 170px 1fr;
+      gap: .65rem .9rem;
+      align-items: center;
+    }
+
+    label {
+      font-weight: 700;
+      font-size: .94rem;
+    }
+
+    input {
+      padding: .56rem .65rem;
+      border: 1px solid #3c3c3c;
+      border-radius: 8px;
+      font: inherit;
+      width: 100%;
+      background: #0e0e0e;
+      color: var(--ink);
+    }
+
+    button.go {
+      grid-column: 2;
+      justify-self: start;
+      padding: .56rem 1.15rem;
+      border: 0;
+      border-radius: 8px;
+      background: var(--brand);
+      color: #000;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 1rem;
+      background: #0f0f0f;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: .56rem .65rem;
+      border-bottom: 1px solid #262626;
+    }
+
+    th {
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: #c4c4c4;
+      background: #161616;
+    }
+
+    td.num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .score {
+      font-weight: 800;
+    }
+
+    .flash {
+      padding: .72rem 1rem;
+      border: 1px solid #383838;
+      border-radius: 10px;
+      background: var(--flash-bg);
+      margin: 1rem 0;
+    }
+
+    .test {
+      font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: .84rem;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: .85rem;
+    }
+
+    .exp-btn {
+      padding: .28rem .66rem;
+      font-size: .8rem;
+      background: transparent;
+      border: 1px solid var(--brand);
+      color: var(--brand-strong);
+      border-radius: 7px;
+      cursor: pointer;
+    }
+
+    .exp-cell {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: .82rem;
+      background: #141414;
+      line-height: 1.48;
+    }
+
+    .demo {
+      background: #111111;
+      border: 1px dashed #4d4d4d;
+      color: #dddddd;
+      padding: .42rem .92rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    @keyframes fade-in {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 760px) {
+      .wrap {
+        margin: 1rem auto;
+      }
+
+      h1 {
+        font-size: 1.42rem;
+      }
+
+      form {
+        grid-template-columns: 1fr;
+      }
+
+      button.go {
+        grid-column: 1;
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="wrap">
+
+    <div class="banner"><strong>Static preview.</strong> This shows exactly what
+      <code>app.py</code> renders in your browser. Here the buttons are illustrative —
+      in the running app, <em>Fetch</em> pulls GitHub Actions data and <em>Explain</em>
+      calls the AI root-cause step.
+    </div>
+
+    <section class="hero">
+      <h1>Flaky Test Analyzer</h1>
+      <p class="sub">Analyze flaky test behavior from GitHub Actions artifacts and prioritize tests by wasted CI time
+        and instability signals.</p>
+      <div class="credit">Developed by Vineet Kumar</div>
+    </section>
+
+    <div class="flash">Loaded 12 demo rows. Click 'Explain' on any flaky test below.</div>
+
+    <section class="card disclaimer">
+      <strong>Demo disclaimer</strong>
+      <div class="muted">This web UI currently supports public GitHub repository URLs for quick evaluation and demo
+        flows.</div>
+      <div class="muted" style="margin-top:.35rem">For private repositories, use the workflow at
+        <code>ci-snippet/flaky-tests.yml</code> (or copy equivalent steps) in your repo CI pipeline, then run this
+        analyzer against generated reports in your controlled environment.
+      </div>
+      <div class="hint" style="margin-top:.35rem">Why this matters: reliable flake detection needs test reruns/repeats;
+        single run per commit usually cannot expose flaky behavior.</div>
+    </section>
+
+    <section class="card">
+      <form onsubmit="return false">
+        <label>Public repo URL</label><input placeholder="https://github.com/owner/repo">
+        <label>Branch (optional)</label><input placeholder="main">
+        <label>Artifact name has</label><input value="test">
+        <label>Max runs to fetch</label><input type="number" value="30">
+        <button class="go">Fetch &amp; analyze</button>
+        <span class="hint" style="grid-column:2">Tip: set <code>GITHUB_TOKEN</code> on the server for better API
+          reliability and fewer rate-limit failures.</span>
+      </form>
+    </section>
+
+    <section class="card">
+      <strong>AI Explain setup (Anthropic)</strong>
+      <div class="hint" style="margin-top:.35rem">The Explain button needs <code>ANTHROPIC_API_KEY</code> available to
+        the Flask process.</div>
+      <div class="hint" style="margin-top:.25rem">macOS/Linux: <code>export ANTHROPIC_API_KEY=sk-ant-...</code></div>
+      <div class="hint" style="margin-top:.15rem">VS Code debug: set <code>ANTHROPIC_API_KEY</code> in
+        <code>.vscode/launch.json</code> under <code>env</code>.
+      </div>
+    </section>
+
+    <form onsubmit="return false" style="margin:-.5rem 0 1rem">
+      <button class="demo">Load demo data</button>
+      <span class="hint">No repo handy? Seed realistic flaky tests to try the dashboard + AI explain.</span>
+    </form>
+
+    <table>
+      <tr>
+        <th>Score</th>
+        <th class="num">Wasted&nbsp;(s)</th>
+        <th class="num">Runs</th>
+        <th class="num">Flip</th>
+        <th class="num">Reruns</th>
+        <th>Test</th>
+        <th></th>
+      </tr>
+
+      <tr>
+        <td class="score num">1.00</td>
+        <td class="num">6.3</td>
+        <td class="num">3</td>
+        <td class="num">1.00</td>
+        <td class="num">2</td>
+        <td class="test">com.api.LoginTest#redirectsAfterLogin</td>
+        <td><button class="exp-btn">Explain</button></td>
+      </tr>
+      <tr>
+        <td colspan="7" class="exp-cell">Category: async/timing (missing or insufficient wait)
+          Why: the trace shows a Selenium TimeoutException waiting for an element to be clickable, which appears only on
+          some runs — a classic timing race between the page state and the assertion.
+          Fix: replace the fixed/implicit wait with an explicit WebDriverWait on the precise condition
+          (elementToBeClickable) for this element, and avoid Thread.sleep; if the element loads via async XHR, wait on
+          that state rather than a duration.</td>
+      </tr>
+
+      <tr>
+        <td class="score num">1.00</td>
+        <td class="num">2.4</td>
+        <td class="num">3</td>
+        <td class="num">1.00</td>
+        <td class="num">0</td>
+        <td class="test">com.api.PaymentTest#chargesCard</td>
+        <td><button class="exp-btn">Explain</button></td>
+      </tr>
+
+      <tr>
+        <td class="score num">1.00</td>
+        <td class="num">2.2</td>
+        <td class="num">4</td>
+        <td class="num">1.00</td>
+        <td class="num">0</td>
+        <td class="test">com.api.CartTest#concurrentAdd</td>
+        <td><button class="exp-btn">Explain</button></td>
+      </tr>
+    </table>
+
+  </div>
+</body>
+
+</html>
