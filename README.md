@@ -73,6 +73,25 @@ Render setup:
 
 If you are only demoing the UI, use the static `preview.html` or host a static front-end on a CDN. If you need the live analyzer, keep the Flask backend and accept that free hosting may sleep between requests.
 
+## Deploy On Vercel (from GitHub)
+
+This repo includes `vercel.json` so Vercel can run the Flask app directly.
+
+1. Push this branch to your GitHub repository.
+2. In Vercel, click **Add New -> Project** and import the repo.
+3. Keep defaults; Vercel will detect Python from `requirements.txt`.
+4. Add environment variables in Vercel Project Settings -> Environment Variables:
+  - `FLASK_SECRET_KEY` (required for production sessions/flash messages)
+  - `GITHUB_TOKEN` (recommended, avoids GitHub API rate limits and artifact download failures)
+  - `ANTHROPIC_API_KEY` (optional, required only for the Explain button)
+5. Deploy.
+
+### Important Vercel notes
+
+- On Vercel, SQLite is configured to `/tmp/flaky.db` automatically.
+- `/tmp` is ephemeral in serverless environments, so dashboard data is not guaranteed to persist across cold starts/redeploys.
+- If you need durable storage, move `results` to a managed DB (for example Postgres/Supabase/Neon) instead of SQLite.
+
 ## The most important caveat
 
 A pipeline that runs each test **once per commit produces no flake data** —
