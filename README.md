@@ -5,6 +5,12 @@ when it produces different results without the code changing. This tool reads
 test-report history, scores each test's flakiness, ranks them by wasted CI time,
 and uses an LLM to suggest a root cause.
 
+## Live Status
+
+- Public app: https://flakytest.vineetkr.com/
+- Health check: https://flakytest.vineetkr.com/healthz
+- Default Vercel URL (may be access-protected): https://flaky-analyzer-igxhqfo4h-vineets-projects-bec904e0.vercel.app/
+
 ## What's in here
 
 ```
@@ -21,6 +27,23 @@ flaky-analyzer/
 
 The GUI is not a standalone file — it is HTML served by `app.py` at runtime.
 It only appears in a browser once the server is running.
+
+## Use It As A Public Web App (General Users)
+
+If you are using the hosted app (not running code locally), follow this flow:
+
+1. Open the public URL shared by the maintainer.
+2. Click **Load demo data** to verify the dashboard and ranking are working.
+3. To analyze a real project, paste a public GitHub repo URL in **Public repo URL**.
+4. Keep **Artifact name has** set to `test` unless your workflow uploads artifacts with another name.
+5. Click **Fetch and analyze**.
+
+Expected behavior for general users:
+
+- You do **not** need to provide your own GitHub token in the UI.
+- The server may still show limited/no results if the target repo does not upload test XML artifacts.
+- The strongest flaky signals require repeated runs/reruns; a single run per commit often shows no flakes.
+- The **Explain** button works only when the host has `ANTHROPIC_API_KEY` configured.
 
 ## Run it in VS Code
 
@@ -56,6 +79,14 @@ Everything else (fetch, scoring, demo data) works without it.
 - **Private repo:** don't paste a personal token into a hosted version. Instead
   add `ci-snippet/flaky-tests.yml` to the repo.
 
+### If You See No Data After Fetch
+
+Check these in the target repo/workflow:
+
+1. CI uploads JUnit/Surefire-style XML artifacts.
+2. Artifact names match the filter value used in the UI.
+3. There are multiple runs/reruns so flaky signals can be observed.
+
 ## Hosting speed
 
 If you want the app to feel fast on a free tier, the tradeoff is usually cold-start lag:
@@ -87,6 +118,23 @@ This repo includes `vercel.json` so Vercel can run the Flask app directly.
 - `ANTHROPIC_API_KEY` (optional, required only for the Explain button)
 
 5. Deploy.
+
+### Public access note
+
+- If your `*.vercel.app` URL returns **401**, Vercel deployment protection is enabled.
+- Your custom domain can still be public and working at the same time.
+- For public demos, share the custom domain URL (or disable protection for the default deployment URL).
+
+### Public Access Checklist
+
+Use this quick checklist after each deploy:
+
+1. Open your custom domain root URL and confirm the app page loads.
+2. Open `/healthz` on the same domain and confirm it returns `{"status":"ok"}`.
+3. Click **Load demo data** and verify rows appear in the dashboard.
+4. Test one known public GitHub repo URL with **Fetch and analyze**.
+5. If no rows appear, confirm the target repo uploads JUnit/Surefire XML artifacts.
+6. If using Explain, confirm the host has `ANTHROPIC_API_KEY` configured.
 
 ### Important Vercel notes
 

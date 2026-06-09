@@ -36,8 +36,8 @@ import xml.etree.ElementTree as ET
 import requests
 from flask import Flask, request, render_template_string, redirect, url_for, flash
 
-if os.environ.get("VERCEL") and not os.environ.get("FLAKY_DB"):
-    # Ensure DB path is writable in serverless before importing analyzer module.
+if os.environ.get("VERCEL"):
+    # Force a writable SQLite path in Vercel serverless runtime.
     os.environ["FLAKY_DB"] = "/tmp/flaky.db"
 
 # Reuse the engine you already have.

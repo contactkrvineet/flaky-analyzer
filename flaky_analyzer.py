@@ -41,7 +41,18 @@ DB_PATH = os.environ.get("FLAKY_DB", "flaky.db")
 # Storage
 # --------------------------------------------------------------------------- #
 def connect():
-    conn = sqlite3.connect(DB_PATH)
+    db_path = DB_PATH
+    try:
+        db_dir = os.path.dirname(os.path.abspath(db_path))
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
+        conn = sqlite3.connect(db_path)
+    except sqlite3.OperationalError:
+        # Last-resort fallback for serverless/read-only deploy environments.
+        fallback = "/tmp/flaky.db"
+        os.environ["FLAKY_DB"] = fallback
+        db_path = fallback
+        conn = sqlite3.connect(db_path)
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS results (
