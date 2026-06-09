@@ -220,6 +220,65 @@ ROOT_CAUSE_CATEGORIES = [
 ]
 
 
+def _call_anthropic(prompt):
+    import anthropic
+
+    client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
+    model = os.environ.get("LLM_MODEL", "claude-sonnet-4-5")
+    resp = client.messages.create(
+        model=model,
+        max_tokens=500,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return "\n".join(b.text for b in resp.content if b.type == "text")
+
+
+def _call_openai(prompt):
+    try:
+        from openai import OpenAI
+    except ImportError as e:
+        raise RuntimeError("openai package is not installed. Run: pip install openai") from e
+
+    model = os.environ.get("LLM_MODEL", "gpt-4o-mini")
+    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    resp = client.responses.create(
+        model=model,
+        input=prompt,
+        max_output_tokens=500,
+    )
+    return resp.output_text
+
+
+def _call_ollama(prompt):
+    import requests
+
+    base = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+    model = os.environ.get("LLM_MODEL", os.environ.get("OLLAMA_MODEL", "llama3.2"))
+    r = requests.post(
+        f"{base.rstrip('/')}/api/generate",
+        json={"model": model, "prompt": prompt, "stream": False},
+        timeout=120,
+    )
+    r.raise_for_status()
+    return r.json().get("response", "")
+
+
+def explain_with_model(prompt):
+    provider = os.environ.get("LLM_PROVIDER", "anthropic").strip().lower()
+    if provider == "anthropic":
+        return _call_anthropic(prompt)
+    if provider == "openai":
+        return _call_openai(prompt)
+    if provider == "ollama":
+        return _call_ollama(prompt)
+    raise RuntimeError("Unsupported LLM_PROVIDER. Use one of: anthropic, openai, ollama")
+
+
+def explain_test_messages(test_id, messages):
+    prompt = build_root_cause_prompt(test_id, messages)
+    return explain_with_model(prompt)
+
+
 def build_root_cause_prompt(test_id, messages):
     sample = "\n---\n".join(m for m in messages if m)[:6000]
     cats = "\n".join(f"- {c}" for c in ROOT_CAUSE_CATEGORIES)
@@ -243,19 +302,12 @@ def classify(test_id):
         print(f"No failure messages stored for {test_id}.")
         return
 
-    prompt = build_root_cause_prompt(test_id, msgs)
     try:
-        import anthropic  # optional dependency
-        client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
-        resp = client.messages.create(
-            model="claude-sonnet-4-5",
-            max_tokens=500,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        print("\n".join(b.text for b in resp.content if b.type == "text"))
-    except ImportError:
-        print("`anthropic` not installed. Here is the prompt you would send:\n")
-        print(prompt)
+        print(explain_test_messages(test_id, msgs))
+    except Exception as e:
+        print(f"LLM explain unavailable: {e}")
+        print("Here is the prompt you can send to any model:\n")
+        print(build_root_cause_prompt(test_id, msgs))
 
 
 # --------------------------------------------------------------------------- #

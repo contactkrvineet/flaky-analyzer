@@ -42,7 +42,7 @@ if os.environ.get("VERCEL"):
 
 # Reuse the engine you already have.
 from flaky_analyzer import (connect, score_tests, _outcome, _message,
-                            build_root_cause_prompt)
+                            explain_test_messages)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "local-dev-only")
@@ -50,6 +50,39 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "local-dev-only")
 GH = "https://api.github.com"
 _DASHBOARD_CACHE = {"ts": 0.0, "rows": []}
 _DASHBOARD_CACHE_TTL_S = 3
+
+
+def llm_config_status():
+    provider = os.environ.get("LLM_PROVIDER", "anthropic").strip().lower()
+    model = os.environ.get("LLM_MODEL", "")
+
+    if provider == "anthropic":
+        configured = bool(os.environ.get("ANTHROPIC_API_KEY"))
+        required = ["ANTHROPIC_API_KEY"]
+        default_model = "claude-sonnet-4-5"
+    elif provider == "openai":
+        configured = bool(os.environ.get("OPENAI_API_KEY"))
+        required = ["OPENAI_API_KEY"]
+        default_model = "gpt-4o-mini"
+    elif provider == "ollama":
+        configured = True
+        required = []
+        default_model = os.environ.get("OLLAMA_MODEL", "llama3.2")
+    else:
+        return {
+            "status": "error",
+            "provider": provider,
+            "message": "Unsupported LLM_PROVIDER. Use anthropic, openai, or ollama.",
+            "supported_providers": ["anthropic", "openai", "ollama"],
+        }
+
+    return {
+        "status": "ok" if configured else "misconfigured",
+        "provider": provider,
+        "configured": configured,
+        "required_env": required,
+        "model": model or default_model,
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -216,16 +249,20 @@ PAGE = """
 <style>
     :root {
         color-scheme: dark;
-        --bg: #070707;
-        --panel: #121212;
-        --ink: #f2f2f2;
-        --muted: #b3b3b3;
-        --brand: #f5f5f5;
-        --brand-strong: #d8d8d8;
-        --line: #2d2d2d;
+        --bg: #06090d;
+        --panel: #10161d;
+        --panel-elevated: #131b23;
+        --ink: #edf3fb;
+        --muted: #9aa8ba;
+        --brand: #7dd3fc;
+        --brand-strong: #3bb5ef;
+        --line: #273445;
         --warn-bg: #151515;
         --warn-line: #424242;
-        --flash-bg: #171717;
+        --flash-bg: #12202b;
+        --ok: #22c55e;
+        --pill-mid: #f59e0b;
+        --pill-hot: #ef4444;
     }
     * { box-sizing: border-box; }
     body {
@@ -243,8 +280,36 @@ PAGE = """
         padding: 0 1rem;
         animation: fade-in .45s ease-out;
     }
+    .page-top {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: .75rem;
+    }
+    .source-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .38rem .72rem;
+        border: 1px solid rgba(173, 229, 255, 0.24);
+        border-radius: 999px;
+        background: rgba(13, 21, 31, 0.78);
+        color: #b6e8ff;
+        font-size: .78rem;
+        text-decoration: none;
+        transition: transform .12s ease, border-color .12s ease, background .12s ease;
+    }
+    .source-badge:hover {
+        transform: translateY(-1px);
+        border-color: rgba(173, 229, 255, 0.55);
+        background: rgba(20, 30, 42, 0.95);
+        color: #eaf9ff;
+    }
+    .source-badge .arrow {
+        font-size: .9em;
+        opacity: .8;
+    }
     .hero {
-        background: linear-gradient(145deg, #171717, #101010 58%);
+        background: linear-gradient(145deg, #152232, #0d151f 58%);
         border: 1px solid var(--line);
         border-radius: 16px;
         padding: 1.15rem 1.2rem;
@@ -263,7 +328,31 @@ PAGE = """
     .credit {
         margin-top: .55rem;
         font-size: .86rem;
-        color: #22c55e;
+        color: var(--ok);
+    }
+    .metrics {
+        margin-top: .9rem;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: .7rem;
+    }
+    .metric {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: rgba(13, 21, 31, 0.7);
+        padding: .68rem .78rem;
+    }
+    .metric-label {
+        color: var(--muted);
+        font-size: .76rem;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+    }
+    .metric-value {
+        margin-top: .2rem;
+        font-size: 1.05rem;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
     }
     .card {
         border: 1px solid var(--line);
@@ -289,16 +378,16 @@ PAGE = """
     }
     input {
         padding: .56rem .65rem;
-        border: 1px solid #3c3c3c;
+        border: 1px solid #314156;
         border-radius: 8px;
         font: inherit;
         width: 100%;
-        background: #0e0e0e;
+        background: #0d151e;
         color: var(--ink);
     }
     input:focus {
-        outline: 2px solid #7d7d7d;
-        border-color: #808080;
+        outline: 2px solid rgba(61, 171, 227, 0.35);
+        border-color: var(--brand-strong);
     }
     button {
         grid-column: 2;
@@ -306,36 +395,78 @@ PAGE = """
         padding: .56rem 1.15rem;
         border: 0;
         border-radius: 8px;
-        background: var(--brand);
-        color: #000;
+        background: linear-gradient(180deg, var(--brand), #5dc4f3);
+        color: #062536;
         font: inherit;
         font-weight: 700;
         cursor: pointer;
         transition: transform .12s ease, background-color .12s ease;
     }
     button:hover { background: var(--brand-strong); transform: translateY(-1px); }
+    .table-wrap {
+        margin-top: 1rem;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+        background: #0d141d;
+    }
     table {
         border-collapse: collapse;
         width: 100%;
-        margin-top: 1rem;
-        background: #0f0f0f;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        overflow: hidden;
+        background: transparent;
     }
-    th, td { text-align: left; padding: .56rem .65rem; border-bottom: 1px solid #262626; }
+    th, td {
+        text-align: left;
+        padding: .62rem .72rem;
+        border-bottom: 1px solid rgba(41, 61, 84, 0.58);
+    }
     th {
         font-size: .78rem;
         text-transform: uppercase;
         letter-spacing: .06em;
-        color: #c4c4c4;
-        background: #161616;
+        color: #b8c8da;
+        background: #172433;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+    tbody tr.data-row {
+        transition: background-color .2s ease;
+    }
+    tbody tr.data-row:nth-child(4n + 1),
+    tbody tr.data-row:nth-child(4n + 2) {
+        background: rgba(12, 21, 31, 0.75);
+    }
+    tbody tr.data-row:hover {
+        background: rgba(37, 64, 92, 0.35);
     }
     td.num { text-align: right; font-variant-numeric: tabular-nums; }
     .score { font-weight: 800; }
+    .score-pill {
+        display: inline-flex;
+        min-width: 3.1rem;
+        justify-content: center;
+        padding: .18rem .42rem;
+        border-radius: 999px;
+        font-size: .78rem;
+        font-weight: 800;
+        background: rgba(34, 197, 94, 0.16);
+        border: 1px solid rgba(34, 197, 94, 0.48);
+        color: #8ef0b0;
+    }
+    .score-pill.mid {
+        background: rgba(245, 158, 11, 0.16);
+        border-color: rgba(245, 158, 11, 0.52);
+        color: #ffcf7a;
+    }
+    .score-pill.hot {
+        background: rgba(239, 68, 68, 0.16);
+        border-color: rgba(239, 68, 68, 0.5);
+        color: #ff9d9d;
+    }
     .flash {
         padding: .72rem 1rem;
-        border: 1px solid #383838;
+        border: 1px solid #2f4865;
         border-radius: 10px;
         background: var(--flash-bg);
         margin: 1rem 0;
@@ -343,47 +474,126 @@ PAGE = """
     .test { font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: .84rem; }
     .hint { color: var(--muted); font-size: .85rem; }
     .exp-btn {
-        padding: .28rem .66rem;
-        font-size: .8rem;
-        background: transparent;
-        border: 1px solid var(--brand);
-        color: var(--brand-strong);
-        border-radius: 7px;
+        padding: .36rem .72rem;
+        font-size: .78rem;
+        background: rgba(61, 171, 227, 0.11);
+        border: 1px solid rgba(84, 184, 235, 0.56);
+        color: #ade5ff;
+        border-radius: 999px;
         cursor: pointer;
+        transition: transform .12s ease, border-color .12s ease, background .12s ease;
+    }
+    .exp-btn:hover {
+        transform: translateY(-1px);
+        border-color: #7fd3ff;
+        background: rgba(61, 171, 227, 0.2);
+    }
+    .exp-btn:disabled {
+        opacity: .6;
+        cursor: wait;
+    }
+    .exp-row {
+        display: none;
+    }
+    .exp-row.open {
+        display: table-row;
+        animation: reveal .25s ease;
     }
     .exp-cell {
+        padding: 0;
+        border-bottom: 1px solid rgba(41, 61, 84, 0.58);
+    }
+    .exp-panel {
+        margin: .52rem;
+        padding: .68rem .78rem;
+        border: 1px solid #2f4865;
+        border-radius: 10px;
+        background: linear-gradient(165deg, #101a25, #0c141f);
+    }
+    .exp-meta {
+        margin-bottom: .42rem;
+        font-size: .74rem;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+        color: #7fb9da;
+    }
+    .exp-body {
         white-space: pre-wrap;
         font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
         font-size: .82rem;
-        background: #141414;
         line-height: 1.48;
+        color: #dbe9f7;
     }
     .demo {
-        background: #111111;
-        border: 1px dashed #4d4d4d;
-        color: #dddddd;
+        background: #0f1822;
+        border: 1px dashed #406281;
+        color: #c5e8ff;
         padding: .42rem .92rem;
         border-radius: 8px;
         cursor: pointer;
         font: inherit;
     }
+    .footer {
+        margin: 1rem 0 0;
+        padding: .65rem 1rem 0;
+        border-top: 1px solid rgba(41, 61, 84, 0.58);
+        color: var(--muted);
+        font-size: .82rem;
+        text-align: center;
+    }
+    .footer a {
+        color: #ade5ff;
+        text-decoration: none;
+        border-bottom: 1px solid rgba(173, 229, 255, 0.22);
+    }
+    .footer a:hover {
+        color: #e8f8ff;
+        border-bottom-color: rgba(232, 248, 255, 0.85);
+    }
+    .footer .arrow {
+        font-size: .9em;
+        opacity: .8;
+        margin-left: .15rem;
+    }
     @keyframes fade-in {
         from { opacity: 0; transform: translateY(6px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes reveal {
+        from { opacity: 0; transform: translateY(-4px); }
         to { opacity: 1; transform: translateY(0); }
     }
     @media (max-width: 760px) {
         .wrap { margin: 1rem auto; }
         h1 { font-size: 1.42rem; }
+        .metrics { grid-template-columns: 1fr; }
         form { grid-template-columns: 1fr; }
         button { grid-column: 1; width: 100%; }
     }
 </style>
 
 <div class="wrap">
+<div class="page-top">
+    <a class="source-badge" href="https://github.com/contactkrvineet/flaky-analyzer" target="_blank" rel="noreferrer">Source code <span class="arrow">↗</span></a>
+</div>
 <section class="hero">
     <h1>Flaky Test Analyzer</h1>
     <p class="sub">Analyze flaky test behavior from GitHub Actions artifacts and prioritize tests by wasted CI time and instability signals.</p>
     <div class="credit">Developed by Vineet Kumar</div>
+    <div class="metrics">
+        <div class="metric">
+            <div class="metric-label">Detected Flaky Tests</div>
+            <div class="metric-value">{{ flaky_count }}</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">Total Wasted CI Time (s)</div>
+            <div class="metric-value">{{ "%.1f"|format(total_wasted_s) }}</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">Highest Flake Score</div>
+            <div class="metric-value">{{ "%.2f"|format(top_score) }}</div>
+        </div>
+    </div>
 </section>
 
 {% for msg in get_flashed_messages() %}<div class="flash">{{ msg }}</div>{% endfor %}
@@ -396,6 +606,7 @@ PAGE = """
 </section>
 
 <section class="card">
+<div class="hint" style="margin-bottom:.75rem"><strong>Before you fetch:</strong> the target repository must upload JUnit/Surefire XML test artifacts in GitHub Actions (for example via an upload-artifact step). If no matching test artifact exists, the dashboard cannot analyze flakiness.</div>
 <form method="post" action="{{ url_for('fetch') }}">
     <label>Public repo URL</label><input name="repo" placeholder="https://github.com/owner/repo" required>
     <label>Branch (optional)</label><input name="branch" placeholder="main">
@@ -407,11 +618,11 @@ PAGE = """
 </section>
 
 <section class="card">
-    <strong>AI Explain setup (Anthropic)</strong>
-    <div class="hint" style="margin-top:.35rem">The Explain button needs <code>ANTHROPIC_API_KEY</code> available to the Flask process.</div>
-    <div class="hint" style="margin-top:.25rem">macOS/Linux: <code>export ANTHROPIC_API_KEY=sk-ant-...</code></div>
-    <div class="hint" style="margin-top:.15rem">VS Code debug: set <code>ANTHROPIC_API_KEY</code> in <code>.vscode/launch.json</code> under <code>env</code>.</div>
-</div>
+    <strong>AI Explain setup (model-agnostic)</strong>
+    <div class="hint" style="margin-top:.35rem">Flaky analysis works without any LLM. Explain supports <code>LLM_PROVIDER=anthropic|openai|ollama</code>.</div>
+    <div class="hint" style="margin-top:.25rem">Examples: <code>LLM_PROVIDER=anthropic</code> + <code>ANTHROPIC_API_KEY</code>, or <code>LLM_PROVIDER=openai</code> + <code>OPENAI_API_KEY</code>, or <code>LLM_PROVIDER=ollama</code>.</div>
+    <div class="hint" style="margin-top:.15rem">Optional model override: <code>LLM_MODEL</code> (for example <code>gpt-4o-mini</code> or <code>llama3.2</code>).</div>
+</section>
 
 <form method="post" action="{{ url_for('seed') }}" style="margin:-.5rem 0 1rem">
   <button class="demo" type="submit">Load demo data</button>
@@ -419,25 +630,38 @@ PAGE = """
 </form>
 
 {% if rows %}
+<div class="table-wrap">
 <table>
-  <tr><th>Score</th><th class="num">Wasted&nbsp;(s)</th><th class="num">Runs</th>
-      <th class="num">Flip</th><th class="num">Reruns</th><th>Test</th><th></th></tr>
-  {% for r in rows %}
-  <tr>
-    <td class="score num">{{ "%.2f"|format(r.score) }}</td>
-    <td class="num">{{ "%.1f"|format(r.wasted_time_s) }}</td>
-    <td class="num">{{ r.runs }}</td>
-    <td class="num">{{ "%.2f"|format(r.flip_rate) }}</td>
-    <td class="num">{{ r.rerun_flakes }}</td>
-    <td class="test">{{ r.test_id }}</td>
-    <td><button class="exp-btn" data-test="{{ r.test_id }}"
-                onclick="explain({{ loop.index0 }}, this)">Explain</button></td>
-  </tr>
-  <tr id="exp-{{ loop.index0 }}" style="display:none">
-    <td colspan="7" class="exp-cell"></td>
-  </tr>
-  {% endfor %}
+    <thead>
+        <tr><th>Score</th><th class="num">Wasted&nbsp;(s)</th><th class="num">Runs</th>
+                <th class="num">Flip</th><th class="num">Reruns</th><th>Test</th><th>Explain</th></tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}
+    <tr class="data-row">
+        <td class="score num">
+            <span class="score-pill{% if r.score >= 0.9 %} hot{% elif r.score >= 0.6 %} mid{% endif %}">{{ "%.2f"|format(r.score) }}</span>
+        </td>
+        <td class="num">{{ "%.1f"|format(r.wasted_time_s) }}</td>
+        <td class="num">{{ r.runs }}</td>
+        <td class="num">{{ "%.2f"|format(r.flip_rate) }}</td>
+        <td class="num">{{ r.rerun_flakes }}</td>
+        <td class="test">{{ r.test_id }}</td>
+        <td><button type="button" class="exp-btn" data-test="{{ r.test_id }}"
+                                onclick="explain({{ loop.index0 }}, this)">Explain</button></td>
+    </tr>
+    <tr id="exp-{{ loop.index0 }}" class="exp-row">
+        <td colspan="7" class="exp-cell">
+            <div class="exp-panel">
+                <div class="exp-meta">Root Cause Analysis</div>
+                <div class="exp-body"></div>
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
 </table>
+</div>
 {% else %}
 <p class="hint">No flaky tests yet. Fetch a repo or load demo data above
 (real detection needs more than one run per commit, e.g. reruns).</p>
@@ -447,21 +671,29 @@ PAGE = """
 async function explain(idx, btn) {
   const test = btn.dataset.test;
   const row = document.getElementById('exp-' + idx);
-  const cell = row.querySelector('.exp-cell');
-  row.style.display = 'table-row';
-  cell.textContent = 'Analyzing root cause…';
+    const body = row.querySelector('.exp-body');
+    if (row.classList.contains('open')) {
+        row.classList.remove('open');
+        btn.textContent = 'Explain';
+        return;
+    }
+    row.classList.add('open');
+    body.textContent = 'Analyzing root cause...';
+    btn.textContent = 'Loading...';
   btn.disabled = true;
   try {
     const res = await fetch('/explain?test=' + encodeURIComponent(test));
     const data = await res.json();
-    cell.textContent = data.result || data.error || 'No response.';
+        body.textContent = data.result || data.error || 'No response.';
   } catch (e) {
-    cell.textContent = 'Error: ' + e;
+        body.textContent = 'Error: ' + e;
   } finally {
     btn.disabled = false;
+        btn.textContent = 'Hide';
   }
 }
 </script>
+
 </div>
 """
 
@@ -472,12 +704,24 @@ def index():
     if now - _DASHBOARD_CACHE["ts"] > _DASHBOARD_CACHE_TTL_S:
         _DASHBOARD_CACHE["rows"] = score_tests()[:50]
         _DASHBOARD_CACHE["ts"] = now
-    return render_template_string(PAGE, rows=_DASHBOARD_CACHE["rows"])
+    rows = _DASHBOARD_CACHE["rows"]
+    return render_template_string(
+        PAGE,
+        rows=rows,
+        flaky_count=len(rows),
+        total_wasted_s=sum(r["wasted_time_s"] for r in rows),
+        top_score=rows[0]["score"] if rows else 0.0,
+    )
 
 
 @app.route("/healthz")
 def healthz():
     return {"status": "ok"}
+
+
+@app.route("/llm-health")
+def llm_health():
+    return llm_config_status()
 
 
 @app.route("/fetch", methods=["POST"])
@@ -539,23 +783,12 @@ def explain():
     if not msgs:
         return {"error": "No failure messages stored for this test."}
 
-    prompt = build_root_cause_prompt(test, msgs)
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        return {"error": "Explain is disabled: ANTHROPIC_API_KEY is missing. "
-                         "Set it before starting Flask. Example macOS/Linux: "
-                         "export ANTHROPIC_API_KEY=sk-ant-... then run .venv/bin/python app.py. "
-                         "If launching from VS Code, set env.ANTHROPIC_API_KEY in .vscode/launch.json."}
     try:
-        import anthropic
-        client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
-        resp = client.messages.create(
-            model="claude-sonnet-4-5",
-            max_tokens=500,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return {"result": "\n".join(b.text for b in resp.content if b.type == "text")}
+        return {"result": explain_test_messages(test, msgs)}
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": "Explain unavailable. Configure LLM_PROVIDER and matching credentials. "
+                         "Supported providers: anthropic, openai, ollama. "
+                         f"Details: {e}"}
 
 
 if __name__ == "__main__":

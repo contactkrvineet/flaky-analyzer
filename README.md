@@ -9,6 +9,7 @@ and uses an LLM to suggest a root cause.
 
 - Public app: https://flakytest.vineetkr.com/
 - Health check: https://flakytest.vineetkr.com/healthz
+- LLM health: https://flakytest.vineetkr.com/llm-health
 - Default Vercel URL (may be access-protected): https://flaky-analyzer-igxhqfo4h-vineets-projects-bec904e0.vercel.app/
 
 ## What's in here
@@ -41,9 +42,9 @@ If you are using the hosted app (not running code locally), follow this flow:
 Expected behavior for general users:
 
 - You do **not** need to provide your own GitHub token in the UI.
-- The server may still show limited/no results if the target repo does not upload test XML artifacts.
+- The target repo **must upload JUnit/Surefire XML test artifacts** in GitHub Actions; otherwise fetch can complete but no flaky analysis data will appear.
 - The strongest flaky signals require repeated runs/reruns; a single run per commit often shows no flakes.
-- The **Explain** button works only when the host has `ANTHROPIC_API_KEY` configured.
+- The **Explain** button is model-agnostic and can use Anthropic, OpenAI, or Ollama.
 
 ## Run it in VS Code
 
@@ -62,13 +63,21 @@ populate with sample flaky tests.
 
 ## The AI "Explain" step
 
-The Explain button needs an Anthropic API key on the server. Set it before
-running (or fill it into `.vscode/launch.json`):
+Core flaky detection works without any LLM. The Explain button supports multiple providers.
 
-- macOS/Linux: `export ANTHROPIC_API_KEY=sk-...`
-- Windows (PowerShell): `$env:ANTHROPIC_API_KEY="sk-..."`
+Set one provider before running (or in `.vscode/launch.json`):
 
-Everything else (fetch, scoring, demo data) works without it.
+- Anthropic: `LLM_PROVIDER=anthropic` and `ANTHROPIC_API_KEY=...`
+- OpenAI: `LLM_PROVIDER=openai` and `OPENAI_API_KEY=...`
+- Ollama (local): `LLM_PROVIDER=ollama` and optional `OLLAMA_BASE_URL` (default `http://localhost:11434`)
+- If using OpenAI provider, install package once: `pip install openai`
+
+Optional for all providers:
+
+- `LLM_MODEL` to override model name (for example `claude-sonnet-4-5`, `gpt-4o-mini`, `llama3.2`)
+- `GET /llm-health` to verify provider and env configuration in a deployed app
+
+Everything else (fetch, scoring, demo data) works without LLM configuration.
 
 ## Analyzing a real repo
 
@@ -131,10 +140,11 @@ Use this quick checklist after each deploy:
 
 1. Open your custom domain root URL and confirm the app page loads.
 2. Open `/healthz` on the same domain and confirm it returns `{"status":"ok"}`.
-3. Click **Load demo data** and verify rows appear in the dashboard.
-4. Test one known public GitHub repo URL with **Fetch and analyze**.
-5. If no rows appear, confirm the target repo uploads JUnit/Surefire XML artifacts.
-6. If using Explain, confirm the host has `ANTHROPIC_API_KEY` configured.
+3. Open `/llm-health` and confirm provider status is `ok` or expected `misconfigured` (if no LLM key is set yet).
+4. Click **Load demo data** and verify rows appear in the dashboard.
+5. Test one known public GitHub repo URL with **Fetch and analyze**.
+6. If no rows appear, confirm the target repo uploads JUnit/Surefire XML artifacts.
+7. If using Explain, confirm `LLM_PROVIDER` and matching credentials are configured.
 
 ### Important Vercel notes
 
@@ -150,6 +160,81 @@ detection needs tests to **rerun or repeat**. That is exactly what the CI
 snippet does: `-Dsurefire.rerunFailingTestsCount=2` makes intermittent failures
 show up as `<flakyFailure>` entries that this tool reads. Add the snippet first;
 without it, most repos will show an empty report.
+
+## Tester Playbook (How To Verify It Works)
+
+Use this checklist to validate both analysis logic and UI behavior.
+
+### A) Local logic verification (fast, deterministic)
+
+Run from project root:
+
+```bash
+./.venv/bin/python - <<'PY'
+import app
+from flaky_analyzer import score_tests
+
+app.seed_demo()
+rows = score_tests()
+ids = [r["test_id"] for r in rows]
+print("rows", len(rows))
+print("ids", ids)
+assert len(rows) == 3
+assert "com.api.LoginTest#redirectsAfterLogin" in ids
+assert "com.api.PaymentTest#chargesCard" in ids
+assert "com.api.CartTest#concurrentAdd" in ids
+assert "com.api.HealthTest#pingReturns200" not in ids
+print("PASS: scoring logic looks correct")
+PY
+```
+
+Expected:
+
+- exactly 3 flaky tests detected from demo data
+- stable health test is excluded
+
+### B) Local web flow verification
+
+```bash
+./.venv/bin/python - <<'PY'
+from app import app
+
+with app.test_client() as c:
+  assert c.get("/").status_code == 200
+  seeded = c.post("/seed", follow_redirects=True)
+  assert seeded.status_code == 200
+  html = seeded.get_data(as_text=True)
+  assert "com.api.LoginTest#redirectsAfterLogin" in html
+  assert c.get("/healthz").json == {"status": "ok"}
+print("PASS: routes and dashboard render correctly")
+PY
+```
+
+### C) Hosted verification (public)
+
+1. Open root URL and confirm page loads.
+2. Open `/healthz` and confirm `{\"status\":\"ok\"}`.
+3. Click **Load demo data** and confirm table rows appear.
+4. Click **Explain** and confirm either a response or a clear missing-key error.
+
+### D) Regression checks before release
+
+1. Run both local checks above.
+2. Redeploy and repeat hosted verification.
+3. Confirm no 500s in Vercel logs on `GET /` and `GET /healthz`.
+
+## Automated Tests (Pytest + GitHub Actions)
+
+This repository includes automated tests and CI:
+
+- Local command: `./.venv/bin/python -m pytest -q`
+- CI workflow: `.github/workflows/tests.yml`
+
+The CI suite runs on every push and pull request and verifies:
+
+1. Flaky scoring logic against deterministic demo data.
+2. Core Flask routes (`/`, `/seed`, `/healthz`) and dashboard render behavior.
+3. Fetch flow behavior with mocked GitHub responses (success + API rate-limit/auth errors).
 
 ## CLI (optional, no GUI)
 

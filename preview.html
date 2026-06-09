@@ -2,353 +2,584 @@
 <html>
 
 <head>
-  <meta charset="utf-8">
-  <title>Flaky Test Analyzer - preview</title>
-  <style>
-    :root {
-      color-scheme: dark;
-      --bg: #070707;
-      --panel: #121212;
-      --ink: #f2f2f2;
-      --muted: #b3b3b3;
-      --brand: #f5f5f5;
-      --brand-strong: #d8d8d8;
-      --line: #2d2d2d;
-      --warn-bg: #151515;
-      --warn-line: #424242;
-      --flash-bg: #171717;
-    }
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Flaky Test Analyzer - preview</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #06090d;
+            --panel: #10161d;
+            --ink: #edf3fb;
+            --muted: #9aa8ba;
+            --brand: #7dd3fc;
+            --brand-strong: #3bb5ef;
+            --line: #273445;
+            --warn-bg: #151515;
+            --warn-line: #424242;
+            --flash-bg: #12202b;
+            --ok: #22c55e;
+        }
 
-    * {
-      box-sizing: border-box;
-    }
+        * {
+            box-sizing: border-box;
+        }
 
-    body {
-      margin: 0;
-      font: 15px/1.6 "Avenir Next", "Futura", "Trebuchet MS", sans-serif;
-      color: var(--ink);
-      background:
-        radial-gradient(circle at 12% -10%, #1a1a1a 0%, transparent 44%),
-        radial-gradient(circle at 100% 0%, #111111 0%, transparent 38%),
-        var(--bg);
-    }
+        body {
+            margin: 0;
+            font: 15px/1.6 "Avenir Next", "Futura", "Trebuchet MS", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at 12% -10%, #1c3248 0%, transparent 44%),
+                radial-gradient(circle at 100% 0%, #0f2031 0%, transparent 38%),
+                var(--bg);
+        }
 
-    .wrap {
-      max-width: 980px;
-      margin: 2rem auto;
-      padding: 0 1rem;
-      animation: fade-in .45s ease-out;
-    }
+        .wrap {
+            max-width: 980px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            animation: fade-in .45s ease-out;
+        }
 
-    .hero {
-      background: linear-gradient(145deg, #171717, #101010 58%);
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 1.15rem 1.2rem;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, .42);
-    }
+        .page-top {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: .75rem;
+        }
 
-    h1 {
-      margin: 0;
-      font-size: 1.75rem;
-      letter-spacing: .02em;
-    }
+        .source-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            padding: .38rem .72rem;
+            border: 1px solid rgba(173, 229, 255, 0.24);
+            border-radius: 999px;
+            background: rgba(13, 21, 31, 0.78);
+            color: #b6e8ff;
+            font-size: .78rem;
+            text-decoration: none;
+            transition: transform .12s ease, border-color .12s ease, background .12s ease;
+        }
 
-    p.sub {
-      color: var(--muted);
-      margin: .35rem 0 0;
-      max-width: 76ch;
-    }
+        .source-badge:hover {
+            transform: translateY(-1px);
+            border-color: rgba(173, 229, 255, 0.55);
+            background: rgba(20, 30, 42, 0.95);
+            color: #eaf9ff;
+        }
 
-    .credit {
-      margin-top: .55rem;
-      font-size: .86rem;
-      color: #22c55e;
-    }
+        .source-badge .arrow {
+            font-size: .9em;
+            opacity: .8;
+        }
 
-    .banner {
-      background: #131313;
-      border: 1px solid #343434;
-      padding: .6rem .9rem;
-      border-radius: 8px;
-      font-size: .85rem;
-      margin: 1rem 0;
-    }
+        .banner {
+            background: #131d27;
+            border: 1px solid #32506d;
+            color: #d2e8fa;
+            padding: .6rem .9rem;
+            border-radius: 10px;
+            font-size: .85rem;
+            margin: 0 0 1rem;
+        }
 
-    .card {
-      border: 1px solid var(--line);
-      background: var(--panel);
-      border-radius: 12px;
-      margin: 1rem 0;
-      padding: 1rem 1.1rem;
-    }
+        .hero {
+            background: linear-gradient(145deg, #152232, #0d151f 58%);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 1.15rem 1.2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .42);
+        }
 
-    .disclaimer {
-      background: var(--warn-bg);
-      border-color: var(--warn-line);
-    }
+        h1 {
+            margin: 0;
+            font-size: 1.75rem;
+            letter-spacing: .02em;
+        }
 
-    .muted {
-      color: var(--muted);
-    }
+        p.sub {
+            color: var(--muted);
+            margin: .35rem 0 0;
+            max-width: 76ch;
+        }
 
-    form {
-      display: grid;
-      grid-template-columns: 170px 1fr;
-      gap: .65rem .9rem;
-      align-items: center;
-    }
+        .credit {
+            margin-top: .55rem;
+            font-size: .86rem;
+            color: var(--ok);
+        }
 
-    label {
-      font-weight: 700;
-      font-size: .94rem;
-    }
+        .metrics {
+            margin-top: .9rem;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: .7rem;
+        }
 
-    input {
-      padding: .56rem .65rem;
-      border: 1px solid #3c3c3c;
-      border-radius: 8px;
-      font: inherit;
-      width: 100%;
-      background: #0e0e0e;
-      color: var(--ink);
-    }
+        .metric {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: rgba(13, 21, 31, 0.7);
+            padding: .68rem .78rem;
+        }
 
-    button.go {
-      grid-column: 2;
-      justify-self: start;
-      padding: .56rem 1.15rem;
-      border: 0;
-      border-radius: 8px;
-      background: var(--brand);
-      color: #000;
-      font: inherit;
-      font-weight: 700;
-      cursor: pointer;
-    }
+        .metric-label {
+            color: var(--muted);
+            font-size: .76rem;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+        }
 
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      margin-top: 1rem;
-      background: #0f0f0f;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      overflow: hidden;
-    }
+        .metric-value {
+            margin-top: .2rem;
+            font-size: 1.05rem;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+        }
 
-    th,
-    td {
-      text-align: left;
-      padding: .56rem .65rem;
-      border-bottom: 1px solid #262626;
-    }
+        .flash {
+            padding: .72rem 1rem;
+            border: 1px solid #2f4865;
+            border-radius: 10px;
+            background: var(--flash-bg);
+            margin: 1rem 0;
+        }
 
-    th {
-      font-size: .78rem;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-      color: #c4c4c4;
-      background: #161616;
-    }
+        .card {
+            border: 1px solid var(--line);
+            background: var(--panel);
+            border-radius: 12px;
+            margin: 1rem 0;
+            padding: 1rem 1.1rem;
+        }
 
-    td.num {
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-    }
+        .disclaimer {
+            background: var(--warn-bg);
+            border-color: var(--warn-line);
+        }
 
-    .score {
-      font-weight: 800;
-    }
+        .muted {
+            color: var(--muted);
+        }
 
-    .flash {
-      padding: .72rem 1rem;
-      border: 1px solid #383838;
-      border-radius: 10px;
-      background: var(--flash-bg);
-      margin: 1rem 0;
-    }
+        .hint {
+            color: var(--muted);
+            font-size: .85rem;
+        }
 
-    .test {
-      font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-size: .84rem;
-    }
+        form {
+            display: grid;
+            grid-template-columns: 170px 1fr;
+            gap: .65rem .9rem;
+            align-items: center;
+        }
 
-    .hint {
-      color: var(--muted);
-      font-size: .85rem;
-    }
+        label {
+            font-weight: 700;
+            font-size: .94rem;
+        }
 
-    .exp-btn {
-      padding: .28rem .66rem;
-      font-size: .8rem;
-      background: transparent;
-      border: 1px solid var(--brand);
-      color: var(--brand-strong);
-      border-radius: 7px;
-      cursor: pointer;
-    }
+        input {
+            padding: .56rem .65rem;
+            border: 1px solid #314156;
+            border-radius: 8px;
+            font: inherit;
+            width: 100%;
+            background: #0d151e;
+            color: var(--ink);
+        }
 
-    .exp-cell {
-      white-space: pre-wrap;
-      font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-size: .82rem;
-      background: #141414;
-      line-height: 1.48;
-    }
+        button {
+            grid-column: 2;
+            justify-self: start;
+            padding: .56rem 1.15rem;
+            border: 0;
+            border-radius: 8px;
+            background: linear-gradient(180deg, var(--brand), #5dc4f3);
+            color: #062536;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform .12s ease, background-color .12s ease;
+        }
 
-    .demo {
-      background: #111111;
-      border: 1px dashed #4d4d4d;
-      color: #dddddd;
-      padding: .42rem .92rem;
-      border-radius: 8px;
-      cursor: pointer;
-      font: inherit;
-    }
+        button:hover {
+            background: var(--brand-strong);
+            transform: translateY(-1px);
+        }
 
-    @keyframes fade-in {
-      from {
-        opacity: 0;
-        transform: translateY(6px);
-      }
+        .demo {
+            background: #0f1822;
+            border: 1px dashed #406281;
+            color: #c5e8ff;
+            padding: .42rem .92rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font: inherit;
+        }
 
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
+        .table-wrap {
+            margin-top: 1rem;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            overflow: hidden;
+            background: #0d141d;
+        }
 
-    @media (max-width: 760px) {
-      .wrap {
-        margin: 1rem auto;
-      }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            background: transparent;
+        }
 
-      h1 {
-        font-size: 1.42rem;
-      }
+        th,
+        td {
+            text-align: left;
+            padding: .62rem .72rem;
+            border-bottom: 1px solid rgba(41, 61, 84, 0.58);
+        }
 
-      form {
-        grid-template-columns: 1fr;
-      }
+        th {
+            font-size: .78rem;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: #b8c8da;
+            background: #172433;
+        }
 
-      button.go {
-        grid-column: 1;
-        width: 100%;
-      }
-    }
-  </style>
+        tbody tr.data-row:nth-child(4n + 1),
+        tbody tr.data-row:nth-child(4n + 2) {
+            background: rgba(12, 21, 31, 0.75);
+        }
+
+        tbody tr.data-row:hover {
+            background: rgba(37, 64, 92, 0.35);
+        }
+
+        td.num {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .score-pill {
+            display: inline-flex;
+            min-width: 3.1rem;
+            justify-content: center;
+            padding: .18rem .42rem;
+            border-radius: 999px;
+            font-size: .78rem;
+            font-weight: 800;
+            background: rgba(34, 197, 94, 0.16);
+            border: 1px solid rgba(34, 197, 94, 0.48);
+            color: #8ef0b0;
+        }
+
+        .score-pill.hot {
+            background: rgba(239, 68, 68, 0.16);
+            border-color: rgba(239, 68, 68, 0.5);
+            color: #ff9d9d;
+        }
+
+        .test {
+            font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            font-size: .84rem;
+        }
+
+        .exp-btn {
+            padding: .36rem .72rem;
+            font-size: .78rem;
+            background: rgba(61, 171, 227, 0.11);
+            border: 1px solid rgba(84, 184, 235, 0.56);
+            color: #ade5ff;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: transform .12s ease, border-color .12s ease, background .12s ease;
+        }
+
+        .exp-btn:hover {
+            transform: translateY(-1px);
+            border-color: #7fd3ff;
+            background: rgba(61, 171, 227, 0.2);
+        }
+
+        .exp-btn.active {
+            border-color: #9adfff;
+            background: rgba(61, 171, 227, 0.28);
+            color: #e7f8ff;
+        }
+
+        .exp-row {
+            display: none;
+        }
+
+        .exp-row.open {
+            display: table-row;
+        }
+
+        .exp-row.open .exp-panel {
+            animation: reveal .24s ease;
+        }
+
+        .exp-cell {
+            padding: 0;
+            border-bottom: 1px solid rgba(41, 61, 84, 0.58);
+        }
+
+        .exp-panel {
+            margin: .52rem;
+            padding: .68rem .78rem;
+            border: 1px solid #2f4865;
+            border-radius: 10px;
+            background: linear-gradient(165deg, #101a25, #0c141f);
+        }
+
+        .exp-meta {
+            margin-bottom: .42rem;
+            font-size: .74rem;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+            color: #7fb9da;
+        }
+
+        .exp-body {
+            white-space: pre-wrap;
+            font-family: Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            font-size: .82rem;
+            line-height: 1.48;
+            color: #dbe9f7;
+        }
+
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes reveal {
+            from {
+                opacity: 0;
+                transform: translateY(-4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 760px) {
+            .wrap {
+                margin: 1rem auto;
+            }
+
+            h1 {
+                font-size: 1.42rem;
+            }
+
+            .metrics {
+                grid-template-columns: 1fr;
+            }
+
+            form {
+                grid-template-columns: 1fr;
+            }
+
+            button {
+                grid-column: 1;
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 
 <body>
+    <div class="wrap">
+        <div class="page-top">
+            <a class="source-badge" href="https://github.com/contactkrvineet/flaky-analyzer" target="_blank"
+                rel="noreferrer">Source code <span class="arrow">↗</span></a>
+        </div>
 
-  <div class="wrap">
+        <div class="banner"><strong>Static preview.</strong> This mirrors the upgraded index UI with local-only Explain
+            expand/collapse interactions.</div>
 
-    <div class="banner"><strong>Static preview.</strong> This shows exactly what
-      <code>app.py</code> renders in your browser. Here the buttons are illustrative —
-      in the running app, <em>Fetch</em> pulls GitHub Actions data and <em>Explain</em>
-      calls the AI root-cause step.
+        <section class="hero">
+            <h1>Flaky Test Analyzer</h1>
+            <p class="sub">Analyze flaky test behavior from GitHub Actions artifacts and prioritize tests by wasted CI
+                time and instability signals.</p>
+            <div class="credit">Developed by Vineet Kumar</div>
+            <div class="metrics">
+                <div class="metric">
+                    <div class="metric-label">Detected Flaky Tests</div>
+                    <div class="metric-value">3</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Total Wasted CI Time (s)</div>
+                    <div class="metric-value">10.9</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Highest Flake Score</div>
+                    <div class="metric-value">1.00</div>
+                </div>
+            </div>
+        </section>
+
+        <div class="flash">Loaded 12 demo rows. Click Explain on any flaky test below.</div>
+
+        <section class="card disclaimer">
+            <strong>Demo disclaimer</strong>
+            <div class="muted">This web UI currently supports public GitHub repository URLs for quick evaluation and
+                demo flows.</div>
+            <div class="hint" style="margin-top:.35rem">Reliable flake detection needs reruns/repeats; single run per
+                commit usually cannot expose flaky behavior.</div>
+        </section>
+
+        <section class="card">
+            <div class="hint" style="margin-bottom:.75rem"><strong>Before you fetch:</strong> the target repository must
+                upload JUnit/Surefire XML test artifacts in GitHub Actions (for example via an upload-artifact step). If
+                no matching test artifact exists, the dashboard cannot analyze flakiness.</div>
+            <form onsubmit="return false">
+                <label>Public repo URL</label><input placeholder="https://github.com/owner/repo">
+                <label>Branch (optional)</label><input placeholder="main">
+                <label>Artifact name has</label><input value="test">
+                <label>Max runs to fetch</label><input type="number" value="15">
+                <button type="button">Fetch and analyze</button>
+                <span class="hint" style="grid-column:2">Tip: set <code>GITHUB_TOKEN</code> on the server for better API
+                    reliability and fewer rate-limit failures.</span>
+            </form>
+        </section>
+
+        <section class="card">
+            <strong>AI Explain setup (model-agnostic)</strong>
+            <div class="hint" style="margin-top:.35rem">Explain supports
+                <code>LLM_PROVIDER=anthropic|openai|ollama</code>.</div>
+            <div class="hint" style="margin-top:.2rem">Optional model override: <code>LLM_MODEL</code>.</div>
+        </section>
+
+        <form onsubmit="return false" style="margin:-.5rem 0 1rem">
+            <button type="button" class="demo">Load demo data</button>
+            <span class="hint">No repo handy? Seed realistic flaky tests to try the dashboard + AI explain.</span>
+        </form>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Score</th>
+                        <th class="num">Wasted (s)</th>
+                        <th class="num">Runs</th>
+                        <th class="num">Flip</th>
+                        <th class="num">Reruns</th>
+                        <th>Test</th>
+                        <th>Explain</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="data-row">
+                        <td class="num"><span class="score-pill hot">1.00</span></td>
+                        <td class="num">6.3</td>
+                        <td class="num">3</td>
+                        <td class="num">1.00</td>
+                        <td class="num">2</td>
+                        <td class="test">com.api.LoginTest#redirectsAfterLogin</td>
+                        <td><button type="button" class="exp-btn active" data-target="exp-0">Hide</button></td>
+                    </tr>
+                    <tr id="exp-0" class="exp-row open">
+                        <td colspan="7" class="exp-cell">
+                            <div class="exp-panel">
+                                <div class="exp-meta">Root Cause Analysis</div>
+                                <div class="exp-body">Category: async/timing (missing or insufficient wait)
+                                    Why: trace indicates intermittent Selenium timeout waiting for clickable element.
+                                    Fix: use explicit WebDriverWait for target state and remove hardcoded sleeps.</div>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <tr class="data-row">
+                        <td class="num"><span class="score-pill hot">1.00</span></td>
+                        <td class="num">2.4</td>
+                        <td class="num">3</td>
+                        <td class="num">1.00</td>
+                        <td class="num">0</td>
+                        <td class="test">com.api.PaymentTest#chargesCard</td>
+                        <td><button type="button" class="exp-btn" data-target="exp-1">Explain</button></td>
+                    </tr>
+                    <tr id="exp-1" class="exp-row">
+                        <td colspan="7" class="exp-cell">
+                            <div class="exp-panel">
+                                <div class="exp-meta">Root Cause Analysis</div>
+                                <div class="exp-body">Category: external dependency (network, DB, third-party API)
+                                    Why: same-commit pass/fail divergence with connection refused indicates intermittent
+                                    service availability, not code determinism.
+                                    Fix: replace live dependency with controllable test doubles and add resilient
+                                    retries for unavoidable integration calls.</div>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <tr class="data-row">
+                        <td class="num"><span class="score-pill hot">1.00</span></td>
+                        <td class="num">2.2</td>
+                        <td class="num">4</td>
+                        <td class="num">1.00</td>
+                        <td class="num">0</td>
+                        <td class="test">com.api.CartTest#concurrentAdd</td>
+                        <td><button type="button" class="exp-btn" data-target="exp-2">Explain</button></td>
+                    </tr>
+                    <tr id="exp-2" class="exp-row">
+                        <td colspan="7" class="exp-cell">
+                            <div class="exp-panel">
+                                <div class="exp-meta">Root Cause Analysis</div>
+                                <div class="exp-body">Category: concurrency / race condition
+                                    Why: alternating pass/fail across runs with concurrent modification errors points to
+                                    unsafe shared state access in test or application setup.
+                                    Fix: isolate mutable state per test run and guard concurrent sections with
+                                    thread-safe collections or synchronization primitives.</div>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
-    <section class="hero">
-      <h1>Flaky Test Analyzer</h1>
-      <p class="sub">Analyze flaky test behavior from GitHub Actions artifacts and prioritize tests by wasted CI time
-        and instability signals.</p>
-      <div class="credit">Developed by Vineet Kumar</div>
-    </section>
+    <script>
+        const explainButtons = Array.from(document.querySelectorAll('.exp-btn'));
 
-    <div class="flash">Loaded 12 demo rows. Click 'Explain' on any flaky test below.</div>
+        function closeAllExcept(openRowId) {
+            document.querySelectorAll('.exp-row').forEach((row) => {
+                row.classList.toggle('open', row.id === openRowId);
+            });
+            explainButtons.forEach((button) => {
+                const shouldHide = button.dataset.target === openRowId;
+                button.textContent = shouldHide ? 'Hide' : 'Explain';
+                button.classList.toggle('active', shouldHide);
+            });
+        }
 
-    <section class="card disclaimer">
-      <strong>Demo disclaimer</strong>
-      <div class="muted">This web UI currently supports public GitHub repository URLs for quick evaluation and demo
-        flows.</div>
-      <div class="muted" style="margin-top:.35rem">For private repositories, use the workflow at
-        <code>ci-snippet/flaky-tests.yml</code> (or copy equivalent steps) in your repo CI pipeline, then run this
-        analyzer against generated reports in your controlled environment.
-      </div>
-      <div class="hint" style="margin-top:.35rem">Why this matters: reliable flake detection needs test reruns/repeats;
-        single run per commit usually cannot expose flaky behavior.</div>
-    </section>
+        explainButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                const targetId = button.dataset.target;
+                const row = document.getElementById(targetId);
+                if (!row) return;
 
-    <section class="card">
-      <form onsubmit="return false">
-        <label>Public repo URL</label><input placeholder="https://github.com/owner/repo">
-        <label>Branch (optional)</label><input placeholder="main">
-        <label>Artifact name has</label><input value="test">
-        <label>Max runs to fetch</label><input type="number" value="30">
-        <button class="go">Fetch &amp; analyze</button>
-        <span class="hint" style="grid-column:2">Tip: set <code>GITHUB_TOKEN</code> on the server for better API
-          reliability and fewer rate-limit failures.</span>
-      </form>
-    </section>
-
-    <section class="card">
-      <strong>AI Explain setup (Anthropic)</strong>
-      <div class="hint" style="margin-top:.35rem">The Explain button needs <code>ANTHROPIC_API_KEY</code> available to
-        the Flask process.</div>
-      <div class="hint" style="margin-top:.25rem">macOS/Linux: <code>export ANTHROPIC_API_KEY=sk-ant-...</code></div>
-      <div class="hint" style="margin-top:.15rem">VS Code debug: set <code>ANTHROPIC_API_KEY</code> in
-        <code>.vscode/launch.json</code> under <code>env</code>.
-      </div>
-    </section>
-
-    <form onsubmit="return false" style="margin:-.5rem 0 1rem">
-      <button class="demo">Load demo data</button>
-      <span class="hint">No repo handy? Seed realistic flaky tests to try the dashboard + AI explain.</span>
-    </form>
-
-    <table>
-      <tr>
-        <th>Score</th>
-        <th class="num">Wasted&nbsp;(s)</th>
-        <th class="num">Runs</th>
-        <th class="num">Flip</th>
-        <th class="num">Reruns</th>
-        <th>Test</th>
-        <th></th>
-      </tr>
-
-      <tr>
-        <td class="score num">1.00</td>
-        <td class="num">6.3</td>
-        <td class="num">3</td>
-        <td class="num">1.00</td>
-        <td class="num">2</td>
-        <td class="test">com.api.LoginTest#redirectsAfterLogin</td>
-        <td><button class="exp-btn">Explain</button></td>
-      </tr>
-      <tr>
-        <td colspan="7" class="exp-cell">Category: async/timing (missing or insufficient wait)
-          Why: the trace shows a Selenium TimeoutException waiting for an element to be clickable, which appears only on
-          some runs — a classic timing race between the page state and the assertion.
-          Fix: replace the fixed/implicit wait with an explicit WebDriverWait on the precise condition
-          (elementToBeClickable) for this element, and avoid Thread.sleep; if the element loads via async XHR, wait on
-          that state rather than a duration.</td>
-      </tr>
-
-      <tr>
-        <td class="score num">1.00</td>
-        <td class="num">2.4</td>
-        <td class="num">3</td>
-        <td class="num">1.00</td>
-        <td class="num">0</td>
-        <td class="test">com.api.PaymentTest#chargesCard</td>
-        <td><button class="exp-btn">Explain</button></td>
-      </tr>
-
-      <tr>
-        <td class="score num">1.00</td>
-        <td class="num">2.2</td>
-        <td class="num">4</td>
-        <td class="num">1.00</td>
-        <td class="num">0</td>
-        <td class="test">com.api.CartTest#concurrentAdd</td>
-        <td><button class="exp-btn">Explain</button></td>
-      </tr>
-    </table>
-
-  </div>
+                const isOpen = row.classList.contains('open');
+                if (isOpen) {
+                    row.classList.remove('open');
+                    button.textContent = 'Explain';
+                    button.classList.remove('active');
+                    return;
+                }
+                closeAllExcept(targetId);
+            });
+        });
+    </script>
 </body>
 
 </html>
