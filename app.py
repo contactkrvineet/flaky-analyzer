@@ -475,6 +475,11 @@ def index():
     return render_template_string(PAGE, rows=_DASHBOARD_CACHE["rows"])
 
 
+@app.route("/healthz")
+def healthz():
+    return {"status": "ok"}
+
+
 @app.route("/fetch", methods=["POST"])
 def fetch():
     try:
