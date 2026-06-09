@@ -81,9 +81,11 @@ This repo includes `vercel.json` so Vercel can run the Flask app directly.
 2. In Vercel, click **Add New -> Project** and import the repo.
 3. Keep defaults; Vercel will detect Python from `requirements.txt`.
 4. Add environment variables in Vercel Project Settings -> Environment Variables:
-  - `FLASK_SECRET_KEY` (required for production sessions/flash messages)
-  - `GITHUB_TOKEN` (recommended, avoids GitHub API rate limits and artifact download failures)
-  - `ANTHROPIC_API_KEY` (optional, required only for the Explain button)
+
+- `FLASK_SECRET_KEY` (required for production sessions/flash messages)
+- `GITHUB_TOKEN` (recommended, avoids GitHub API rate limits and artifact download failures)
+- `ANTHROPIC_API_KEY` (optional, required only for the Explain button)
+
 5. Deploy.
 
 ### Important Vercel notes

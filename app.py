@@ -36,13 +36,13 @@ import xml.etree.ElementTree as ET
 import requests
 from flask import Flask, request, render_template_string, redirect, url_for, flash
 
+if os.environ.get("VERCEL") and not os.environ.get("FLAKY_DB"):
+    # Ensure DB path is writable in serverless before importing analyzer module.
+    os.environ["FLAKY_DB"] = "/tmp/flaky.db"
+
 # Reuse the engine you already have.
 from flaky_analyzer import (connect, score_tests, _outcome, _message,
                             build_root_cause_prompt)
-
-if os.environ.get("VERCEL") and not os.environ.get("FLAKY_DB"):
-    # Vercel's writable filesystem is /tmp; default project dir is read-only.
-    os.environ["FLAKY_DB"] = "/tmp/flaky.db"
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "local-dev-only")
